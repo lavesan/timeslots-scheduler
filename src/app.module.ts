@@ -4,11 +4,13 @@ import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { ThrottlerModule } from '@nestjs/throttler';
 
+import { PrismaModule } from './database/prisma/prisma.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
 @Module({
   imports: [
+    PrismaModule,
     PrometheusModule.register(),
     // Rate limit config: 10 requests per 60 seconds
     ThrottlerModule.forRoot([

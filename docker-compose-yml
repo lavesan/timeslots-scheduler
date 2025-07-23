@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '3000:3000'
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/timeslots?schema=public
+      - REDIS_URL=redis://redis:6379
+      - PORT=3000
+    depends_on:
+      - postgres
+      - redis
+      - prometheus
+    volumes:
+      - .:/app
+      - /app/node_modules
+
+  postgres:
+    image: postgres:alpine
+    ports:
+      - '5432:5432'
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=timeslots
+    command: >
+      postgres 
+        -c 'shared_buffers=512MB' 
+        -c 'fsync=off' 
+        -c 'synchronous_commit=off' 
+        -c 'full_page_writes=off' 
+        -c 'max_connections=100' 
+        -c 'client_min_messages=warning'
+        -c 'temp_buffers=32MB'
+        -c 'work_mem=32MB'
+        -c 'maintenance_work_mem=64MB'
+    tmpfs:
+      - /var/lib/postgresql/data:rw,noexec,nosuid,size=512M
+    shm_size: 512mb
+    restart: always
+
+  redis:
+    image: redis:alpine
+    ports:
+      - '6379:6379'
+    command: redis-server --save "" --appendonly no
+    volumes:
+      - redis-data:/data
+
+  redis-commander:
+    image: rediscommander/redis-commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - '8081:8081'
+    depends_on:
+      - redis
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - '9090:9090'
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - '3001:3000'
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres-data:
+  redis-data:
+  prometheus-data:
+  grafana-data:
